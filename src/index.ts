@@ -492,7 +492,11 @@ async function connectWhatsApp(): Promise<void> {
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
     printQRInTerminal: false,
     logger,
-    browser: ['NanoClaw', 'Chrome', '1.0.0']
+    browser: ['NanoClaw', 'Chrome', '1.0.0'],
+    connectTimeoutMs: 60000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 10000,
+    retryRequestDelayMs: 5000
   });
 
   sock.ev.on('connection.update', (update) => {
@@ -501,14 +505,42 @@ async function connectWhatsApp(): Promise<void> {
     if (qr) {
       const msg = 'WhatsApp authentication required. Run /setup in Claude Code.';
       logger.error(msg);
-      exec(`osascript -e 'display notification "${msg}" with title "NanoClaw" sound name "Basso"'`);
-      setTimeout(() => process.exit(1), 1000);
+      // Only show notification on macOS
+      if (process.platform === 'darwin') {
+         exec(`osascript -e 'display notification "${msg}" with title "NanoClaw" sound name "Basso"'`);
+      }
+      // Don't exit immediately on server, wait for QR scan
+      // setTimeout(() => process.exit(1), 1000); 
     }
 
     if (connection === 'close') {
-      const reason = (lastDisconnect?.error as any)?.output?.statusCode;
-      const shouldReconnect = reason !== DisconnectReason.loggedOut;
-      logger.info({ reason, shouldReconnect }, 'Connection closed');
+      const error = lastDisconnect?.error as any;
+      const statusCode = error?.output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      
+      if (statusCode === 440) {
+         logger.error('⚠️ CONNECTION CONFLICT: Another instance of NanoClaw is running!');
+         logger.error('Please close all other terminals/processes and run `kill-zombies.bat` (Windows) or `pm2 delete nanoclaw` (Linux).');
+         logger.info('Waiting 10s before retrying...');
+         setTimeout(() => connectWhatsApp(), 10000);
+         return;
+      }
+
+      if (statusCode === 428) {
+          logger.error('⚠️ Connection Precondition Failed (428). Session may be corrupted.');
+          logger.info('Retrying connection in 5s...');
+          setTimeout(() => connectWhatsApp(), 5000);
+          return;
+      }
+
+      if (statusCode === 408) {
+          logger.warn('⚠️ Connection Timeout (408). Network may be slow or pre-key upload failed.');
+          logger.info('Retrying connection in 5s...');
+          setTimeout(() => connectWhatsApp(), 5000);
+          return;
+      }
+
+      logger.info({ statusCode, shouldReconnect }, 'Connection closed');
 
       if (shouldReconnect) {
         logger.info('Reconnecting...');
@@ -713,6 +745,15 @@ function ensureContainerSystemRunning(): void {
 }
 
 async function main(): Promise<void> {
+  // Check critical environment variables
+  const missingVars = [];
+  if (!process.env.ANTHROPIC_API_KEY) missingVars.push('ANTHROPIC_API_KEY');
+  
+  if (missingVars.length > 0) {
+      logger.warn(`⚠️ Missing environment variables: ${missingVars.join(', ')}`);
+      logger.warn('Container agent may fail to authenticate with Claude.');
+  }
+
   ensureContainerSystemRunning();
   initDatabase();
   logger.info('Database initialized');
