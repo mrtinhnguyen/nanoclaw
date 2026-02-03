@@ -48,6 +48,10 @@ fi
 echo "[2/5] Installing dependencies..."
 npm install
 
+# Ensure scripts are executable
+chmod +x kill-zombies.sh
+chmod +x container/build.sh
+
 # 3. Build Container Agent
 echo "[3/5] Building Agent Container..."
 cd container

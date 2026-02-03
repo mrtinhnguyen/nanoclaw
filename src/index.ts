@@ -520,7 +520,7 @@ async function connectWhatsApp(): Promise<void> {
       
       if (statusCode === 440) {
          logger.error('⚠️ CONNECTION CONFLICT: Another instance of NanoClaw is running!');
-         logger.error('Please close all other terminals/processes and run `kill-zombies.bat` (Windows) or `pm2 delete nanoclaw` (Linux).');
+         logger.error('Please close all other terminals/processes and run `./kill-zombies.bat` (Windows) or `./kill-zombies.sh` (Linux).');
          logger.info('Waiting 10s before retrying...');
          setTimeout(() => connectWhatsApp(), 10000);
          return;

@@ -117,48 +117,32 @@ function buildVolumeMounts(group: RegisteredGroup, isMain: boolean): VolumeMount
     readonly: false
   });
 
-  // Environment file directory (workaround for Apple Container -i env var bug)
-  // Only expose specific auth variables needed by Claude Code, not the entire .env
-  const envDir = path.join(DATA_DIR, 'env');
-  fs.mkdirSync(envDir, { recursive: true });
-  const envFile = path.join(projectRoot, '.env');
-  if (fs.existsSync(envFile)) {
-    const envContent = fs.readFileSync(envFile, 'utf-8');
-    const allowedVars = ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'];
-    const filteredLines = envContent
-      .split('\n')
-      .filter(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return false;
-        // Check if the line starts with any of the allowed vars followed by '='
-        // Also handle cases where value might be empty but key exists
-        return allowedVars.some(v => trimmed.startsWith(`${v}=`));
-      })
-      .map(line => {
-         // If ANTHROPIC_API_KEY is not in .env but available in process.env, inject it
-         // But here we are reading file content.
-         // Let's modify the logic to use process.env as source of truth for these critical keys
-         return line;
-      });
+    // Environment file directory (workaround for Apple Container -i env var bug)
+    // Only expose specific auth variables needed by Claude Code, not the entire .env
+    const envDir = path.join(DATA_DIR, 'env');
+    fs.mkdirSync(envDir, { recursive: true });
 
-    // Manually ensure keys from process.env are included if missing in file but present in runtime
-    // This is crucial for environments like PM2/Docker where env vars are injected at runtime
+    // We use process.env as the source of truth since dotenv should have loaded .env
+    // This avoids manual parsing issues and ensures we handle quoting correctly
+    const allowedVars = ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'];
+    const filteredLines: string[] = [];
+
     for (const key of allowedVars) {
         const val = process.env[key];
-        const isPresentInFile = filteredLines.some(l => l.startsWith(`${key}=`));
-        if (val && !isPresentInFile) {
-            filteredLines.push(`${key}=${val}`);
+        if (val) {
+            // Quote the value to ensure it's handled correctly by the shell source command
+            // On Linux/Bash, we use single quotes to wrap values and escape internal single quotes
+            filteredLines.push(`${key}='${val.replace(/'/g, "'\\''")}'`);
         }
     }
 
-    if (filteredLines.length > 0) {
-      fs.writeFileSync(path.join(envDir, 'env'), filteredLines.join('\n') + '\n');
-      mounts.push({
-        hostPath: envDir,
-        containerPath: '/workspace/env-dir',
-        readonly: true
-      });
-    }
+  if (filteredLines.length > 0) {
+    fs.writeFileSync(path.join(envDir, 'env'), filteredLines.join('\n') + '\n');
+    mounts.push({
+      hostPath: envDir,
+      containerPath: '/workspace/env-dir',
+      readonly: true
+    });
   }
 
   // Additional mounts validated against external allowlist (tamper-proof from containers)
@@ -223,6 +207,15 @@ export async function runContainerAgent(
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
+    container.on('error', (err) => {
+      logger.error({ group: group.name, error: err }, 'Failed to spawn docker process');
+      resolve({
+        status: 'error',
+        result: null,
+        error: `Failed to spawn docker process: ${err.message}`
+      });
+    });
+
     let stdout = '';
     let stderr = '';
     let stdoutTruncated = false;
@@ -253,7 +246,8 @@ export async function runContainerAgent(
            if (line.includes('Unable to find image') || line.includes('Error response from daemon') || line.includes('docker:')) {
              logger.warn({ container: group.folder }, line);
            } else {
-             logger.debug({ container: group.folder }, line);
+             // Change debug to info to capture startup logs and other potential issues
+             logger.info({ container: group.folder }, line);
            }
         }
       }
