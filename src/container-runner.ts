@@ -230,7 +230,14 @@ export async function runContainerAgent(
       const chunk = data.toString();
       const lines = chunk.trim().split('\n');
       for (const line of lines) {
-        if (line) logger.debug({ container: group.folder }, line);
+        if (line) {
+           // Log important errors to info/warn so they are visible
+           if (line.includes('Unable to find image') || line.includes('Error response from daemon') || line.includes('docker:')) {
+             logger.warn({ container: group.folder }, line);
+           } else {
+             logger.debug({ container: group.folder }, line);
+           }
+        }
       }
       if (stderrTruncated) return;
       const remaining = CONTAINER_MAX_OUTPUT_SIZE - stderr.length;
