@@ -130,8 +130,26 @@ function buildVolumeMounts(group: RegisteredGroup, isMain: boolean): VolumeMount
       .filter(line => {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return false;
+        // Check if the line starts with any of the allowed vars followed by '='
+        // Also handle cases where value might be empty but key exists
         return allowedVars.some(v => trimmed.startsWith(`${v}=`));
+      })
+      .map(line => {
+         // If ANTHROPIC_API_KEY is not in .env but available in process.env, inject it
+         // But here we are reading file content.
+         // Let's modify the logic to use process.env as source of truth for these critical keys
+         return line;
       });
+
+    // Manually ensure keys from process.env are included if missing in file but present in runtime
+    // This is crucial for environments like PM2/Docker where env vars are injected at runtime
+    for (const key of allowedVars) {
+        const val = process.env[key];
+        const isPresentInFile = filteredLines.some(l => l.startsWith(`${key}=`));
+        if (val && !isPresentInFile) {
+            filteredLines.push(`${key}=${val}`);
+        }
+    }
 
     if (filteredLines.length > 0) {
       fs.writeFileSync(path.join(envDir, 'env'), filteredLines.join('\n') + '\n');
