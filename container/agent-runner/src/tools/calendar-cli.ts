@@ -53,7 +53,7 @@ async function authorize() {
 
 async function listEvents(argv: any) {
     const auth = await authorize();
-    const calendar = google.calendar({ version: 'v3', auth });
+    const calendar = google.calendar({ version: 'v3', auth: auth as any });
     const res = await calendar.events.list({
         calendarId: 'primary',
         timeMin: new Date().toISOString(),
@@ -75,7 +75,7 @@ async function listEvents(argv: any) {
 
 async function addEvent(argv: any) {
     const auth = await authorize();
-    const calendar = google.calendar({ version: 'v3', auth });
+    const calendar = google.calendar({ version: 'v3', auth: auth as any });
     
     const startTime = new Date(argv.start);
     const endTime = new Date(startTime.getTime() + argv.duration * 60000);
