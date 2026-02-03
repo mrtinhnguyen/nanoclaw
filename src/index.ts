@@ -547,8 +547,48 @@ async function connectWhatsApp(): Promise<void> {
       // Always store chat metadata for group discovery
       storeChatMetadata(chatJid, timestamp);
 
+      // Check if group is registered
+      const isRegistered = !!registeredGroups[chatJid];
+      
+      // Check for registration command or bootstrapping
+      const content = 
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.videoMessage?.caption ||
+        '';
+        
+      const isRegisterCommand = content.trim().startsWith('/register') || content.trim().startsWith(`@${ASSISTANT_NAME} /register`);
+      const isFirstGroup = Object.keys(registeredGroups).length === 0;
+
+      // Handle bootstrapping or registration for unregistered groups
+      if (!isRegistered && (isRegisterCommand || isFirstGroup)) {
+        logger.info({ chatJid }, 'Processing registration request for WhatsApp group');
+        
+        if (isFirstGroup) {
+           const groupName = 'Main Control';
+           const groupFolder = MAIN_GROUP_FOLDER;
+           
+           registerGroup(chatJid, {
+             name: groupName,
+             folder: groupFolder,
+             trigger: '', 
+             added_at: new Date().toISOString()
+           });
+           
+           // Store the message so it's recorded
+           storeMessage(msg, chatJid, msg.key.fromMe || false, msg.pushName || undefined);
+           
+           await sendMessage(chatJid, `✅ Group registered as '${groupName}' (Main Group). You can now use NanoClaw here.`);
+           continue; // Skip further processing for this message to avoid duplicates if we were to fall through
+        } else if (isRegisterCommand) {
+           await sendMessage(chatJid, `⚠️ This group is not registered. Please go to your Main Group and ask @${ASSISTANT_NAME} to "register group ${chatJid} as [name]"`);
+           continue;
+        }
+      }
+
       // Only store full message content for registered groups
-      if (registeredGroups[chatJid]) {
+      if (isRegistered) {
         let contentOverride: string | undefined;
 
         // Handle audio messages (Whisper)
