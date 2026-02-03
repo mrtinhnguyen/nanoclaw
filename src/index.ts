@@ -73,7 +73,7 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
   const groupDir = path.join(DATA_DIR, '..', 'groups', group.folder);
   fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
 
-  logger.info({ jid, name: group.name, folder: group.folder }, 'Group registered');
+  logger.info({ jid, name: group.name, folder: group.folder }, 'Đã đăng ký nhóm');
 }
 
 /**
@@ -755,7 +755,7 @@ async function main(): Promise<void> {
              
              // Now process the message normally
              storeMessage(msg, msg.chat_jid, false, msg.sender_name);
-             await sendMessage(msg.chat_jid, `✅ Group registered as '${groupName}' (Main Group). You can now use NanoClaw here.`);
+             await sendMessage(msg.chat_jid, `✅ Đã kích hoạt trung tâm điều khiển: '${groupName}'. Bạn có thể sử dụng trợ lý AI của bạn từ đây.`);
              
              // Also process the message if it had content other than just register?
              // Maybe better to just acknowledge registration.

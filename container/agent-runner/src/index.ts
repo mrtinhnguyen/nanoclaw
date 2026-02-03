@@ -234,6 +234,20 @@ async function main(): Promise<void> {
   try {
     log('Starting agent...');
 
+    // DEBUG: Check environment and network
+    const hasKey = !!process.env.ANTHROPIC_API_KEY;
+    const hasToken = !!process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    log(`Environment check: API_KEY=${hasKey}, OAUTH_TOKEN=${hasToken}`);
+
+    try {
+        log('Testing network connectivity...');
+        const res = await fetch('https://www.google.com', { method: 'HEAD' });
+        log(`Network test passed (Google: ${res.status})`);
+    } catch (err) {
+        log(`Network test failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    log('Invoking Anthropic SDK query()...');
     for await (const message of query({
       prompt,
       options: {
