@@ -216,9 +216,15 @@ async function runAgent(group: RegisteredGroup, prompt: string, chatJid: string)
   }
 }
 
+import { startTelegramBot, sendTelegramMessage, isTelegramEnabled } from './telegram.js';
+
 async function sendMessage(jid: string, text: string): Promise<void> {
   try {
-    await sock.sendMessage(jid, { text });
+    if (jid.endsWith('@tg')) {
+      await sendTelegramMessage(jid, text);
+    } else {
+      await sock.sendMessage(jid, { text });
+    }
     logger.info({ jid, length: text.length }, 'Message sent');
   } catch (err) {
     logger.error({ jid, err }, 'Failed to send message');
@@ -670,6 +676,67 @@ async function main(): Promise<void> {
   initDatabase();
   logger.info('Database initialized');
   loadState();
+
+  // Start Telegram bot if configured
+  if (isTelegramEnabled()) {
+    logger.info('Starting Telegram bot...');
+    startTelegramBot(async (msg) => {
+      // Store chat metadata for group discovery
+      storeChatMetadata(msg.chat_jid, msg.timestamp);
+      
+      // Handle message
+      if (registeredGroups[msg.chat_jid]) {
+        storeMessage(msg, msg.chat_jid, false, msg.sender_name);
+        await processMessage(msg);
+      } else {
+        // Allow automatic registration for the first group (Bootstrapping)
+        // OR if the message is explicitly /register
+        const content = msg.content.trim();
+        const isRegisterCommand = content.startsWith('/register') || content.startsWith(`@${ASSISTANT_NAME} /register`);
+        
+        // If no groups registered yet, or explicit register command
+        const isFirstGroup = Object.keys(registeredGroups).length === 0;
+        
+        if (isRegisterCommand || isFirstGroup) {
+           logger.info({ chatJid: msg.chat_jid }, 'Processing registration request for Telegram group');
+           
+           // If it's the very first group, we can auto-register it as 'main'
+           if (isFirstGroup) {
+             const groupName = 'Main Control';
+             const groupFolder = MAIN_GROUP_FOLDER;
+             
+             registerGroup(msg.chat_jid, {
+               name: groupName,
+               folder: groupFolder,
+               trigger: '', // Main group has no trigger requirements usually, or handled by logic
+               added_at: new Date().toISOString()
+             });
+             
+             // Now process the message normally
+             storeMessage(msg, msg.chat_jid, false, msg.sender_name);
+             await sendMessage(msg.chat_jid, `✅ Group registered as '${groupName}' (Main Group). You can now use NanoClaw here.`);
+             
+             // Also process the message if it had content other than just register?
+             // Maybe better to just acknowledge registration.
+           } else if (isRegisterCommand) {
+             // For subsequent groups, we need to ask the MAIN group to approve/register?
+             // Or we can allow self-registration via Agent if we forward this message to a "setup" agent?
+             // Currently NanoClaw design implies the Agent in Main Group manages other groups.
+             // But if we want to allow users to just add the bot:
+             
+             // Let's just notify the user to use the main group to register this one.
+             await sendMessage(msg.chat_jid, `⚠️ This group is not registered. Please go to your Main Group and ask @${ASSISTANT_NAME} to "register group ${msg.chat_jid} as [name]"`);
+           }
+        }
+      }
+      
+      // We also need to feed this into the message loop or handle it here.
+      // Since processMessage handles registered groups, we can just call it.
+      // But we also need to store it in DB so `getMessagesSince` works.
+      // (Done above via storeMessage)
+    });
+  }
+
   await connectWhatsApp();
 }
 
