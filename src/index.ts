@@ -2,12 +2,15 @@ import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
   makeCacheableSignalKeyStore,
-  WASocket
+  WASocket,
+  downloadMediaMessage
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import { exec, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { transcribeAudio } from './transcribe.js';
 
 import {
   ASSISTANT_NAME,
@@ -527,7 +530,7 @@ async function connectWhatsApp(): Promise<void> {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('messages.upsert', ({ messages }) => {
+  sock.ev.on('messages.upsert', async ({ messages }) => {
     for (const msg of messages) {
       if (!msg.message) continue;
       const chatJid = msg.key.remoteJid;
@@ -540,7 +543,37 @@ async function connectWhatsApp(): Promise<void> {
 
       // Only store full message content for registered groups
       if (registeredGroups[chatJid]) {
-        storeMessage(msg, chatJid, msg.key.fromMe || false, msg.pushName || undefined);
+        let contentOverride: string | undefined;
+
+        // Handle audio messages (Whisper)
+        if (msg.message.audioMessage) {
+            try {
+                const buffer = await downloadMediaMessage(
+                    msg,
+                    'buffer',
+                    { },
+                    { 
+                        logger,
+                        reuploadRequest: sock.updateMediaMessage
+                    }
+                );
+                
+                const tempFile = path.join(os.tmpdir(), `audio-${msg.key.id || Date.now()}.ogg`);
+                fs.writeFileSync(tempFile, buffer);
+                
+                const text = await transcribeAudio(tempFile);
+                if (text) {
+                    contentOverride = `[Audio Transcription] ${text}`;
+                    logger.info({ chatJid, text }, 'Audio transcribed');
+                }
+                
+                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+            } catch (err) {
+                logger.error({ err }, 'Failed to transcribe audio message');
+            }
+        }
+
+        storeMessage(msg, chatJid, msg.key.fromMe || false, msg.pushName || undefined, contentOverride);
       }
     }
   });
