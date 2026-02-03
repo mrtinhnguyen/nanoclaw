@@ -779,6 +779,20 @@ async function main(): Promise<void> {
   }
 
   await connectWhatsApp();
+
+  // Enable graceful shutdown
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, 'Shutting down...');
+    try {
+        sock?.end(undefined);
+    } catch (err) {
+        logger.error({ err }, 'Error closing WhatsApp socket');
+    }
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch(err => {
