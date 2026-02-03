@@ -46,7 +46,7 @@ fi
 
 # 2. Install Dependencies
 echo "[2/5] Installing dependencies..."
-npm install
+npm install --legacy-peer-deps
 
 # 3. Build Container Agent
 echo "[3/5] Building Agent Container..."
