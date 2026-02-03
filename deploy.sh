@@ -1,35 +1,42 @@
 #!/bin/bash
 
-# NanoClaw Deployment Script for CentOS 7
+# NanoClaw Deployment Script for Ubuntu
 # Usage: ./deploy.sh
 
 set -e
 
-echo "=== NanoClaw Deployment Script ==="
+echo "=== NanoClaw Deployment Script (Ubuntu) ==="
 
 # 1. Check Requirements
 echo "[1/5] Checking requirements..."
 if ! command -v node &> /dev/null; then
     echo "Node.js not found. Installing Node.js 20..."
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-    sudo yum install -y nodejs
+    sudo apt update
+    sudo apt install -y curl
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y nodejs
 fi
 
 if ! command -v docker &> /dev/null; then
     echo "Docker not found. Installing Docker..."
-    sudo yum install -y yum-utils
-    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-    sudo yum install -y docker-ce docker-ce-cli containerd.io
+    sudo apt install -y ca-certificates curl gnupg
+    sudo install -m 0755 -d /etc/apt/keyrings
+    [ -f /etc/apt/keyrings/docker.gpg ] || curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     sudo systemctl start docker
     sudo systemctl enable docker
 fi
 
 if ! command -v ffmpeg &> /dev/null; then
     echo "FFmpeg not found. Installing FFmpeg..."
-    sudo yum install -y epel-release
-    sudo rpm -v --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
-    sudo rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
-    sudo yum install -y ffmpeg ffmpeg-devel
+    sudo apt update
+    sudo apt install -y ffmpeg
 fi
 
 if ! command -v pm2 &> /dev/null; then

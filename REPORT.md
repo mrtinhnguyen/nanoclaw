@@ -39,17 +39,17 @@ Hệ thống AI Assistant (NanoClaw) đã được nâng cấp để phục vụ
     -   **Cấu hình:** Thêm `TELEGRAM_TOKEN` vào biến môi trường.
 
 ### 2.4. Hạ tầng & Triển khai
-- **Hệ điều hành:** CentOS 7 (theo yêu cầu).
+- **Hệ điều hành:** Ubuntu (thay thế CentOS 7).
 - **Giải pháp:** Sử dụng Docker để đảm bảo tính tương thích.
 - **Tự động hóa:** Đã tạo script `deploy.sh` để cài đặt toàn bộ dependencies (Node.js, Docker, FFmpeg) và build ứng dụng chỉ với 1 lệnh.
-- **Tài liệu:** Đã cập nhật `docs/CENTOS7_DEPLOY.md` bao gồm hướng dẫn biến môi trường và cài đặt FFmpeg.
+- **Tài liệu:** Đã tạo `docs/UBUNTU_DEPLOY.md` thay thế cho tài liệu CentOS cũ.
 
 ## 3. Hướng dẫn sử dụng
 
 ### 3.1. Cài đặt ban đầu
 1.  Copy `deploy.sh` lên server và chạy: `chmod +x deploy.sh && ./deploy.sh`
 2.  Cấu hình file `.env` (theo mẫu `.env.example`).
-3.  Làm theo file `docs/CENTOS7_DEPLOY.md` để xác thực Google (OAuth).
+3.  Làm theo file `docs/UBUNTU_DEPLOY.md` để xác thực Google (OAuth).
 
 ### 3.2. Ra lệnh cho AI (Ví dụ)
 - **Voice:** Gửi tin nhắn thoại trực tiếp qua WhatsApp/Telegram. AI sẽ nghe và phản hồi bằng văn bản.

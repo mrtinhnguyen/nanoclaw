@@ -1,9 +1,6 @@
-# Hướng dẫn Triển khai NanoClaw trên CentOS 7
+# Hướng dẫn Triển khai NanoClaw trên Ubuntu
 
-Tài liệu này hướng dẫn chi tiết cách cài đặt và chạy NanoClaw trên máy chủ CentOS 7.
-
-## Lưu ý Quan trọng
-CentOS 7 đã kết thúc hỗ trợ (EOL) vào tháng 6/2024. Bạn nên cân nhắc nâng cấp lên AlmaLinux 9 hoặc Rocky Linux 9. Tuy nhiên, nếu bắt buộc dùng CentOS 7, hãy làm theo hướng dẫn sau.
+Tài liệu này hướng dẫn chi tiết cách cài đặt và chạy NanoClaw trên máy chủ Ubuntu (khuyến nghị 20.04 LTS hoặc mới hơn).
 
 ## 1. Cài đặt Môi trường (Node.js & Docker)
 
@@ -12,16 +9,16 @@ NanoClaw yêu cầu Node.js phiên bản mới (v20+) và Docker để chạy c�
 ### Cài đặt Node.js 20
 ```bash
 # Cập nhật hệ thống
-sudo yum update -y
+sudo apt update && sudo apt upgrade -y
 
 # Cài đặt các công cụ cơ bản
-sudo yum install -y curl git wget
+sudo apt install -y curl git wget build-essential
 
 # Thêm NodeSource repository cho Node.js 20
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 
 # Cài đặt Node.js
-sudo yum install -y nodejs
+sudo apt install -y nodejs
 
 # Kiểm tra phiên bản
 node -v
@@ -32,37 +29,34 @@ node -v
 Whisper cần FFmpeg để xử lý file âm thanh.
 
 ```bash
-# Cài đặt EPEL release
-sudo yum install -y epel-release
-
-# Nhập GPG key
-sudo rpm -v --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
-
-# Cài đặt Nux Dextop repository
-sudo rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
-
 # Cài đặt FFmpeg
-sudo yum install -y ffmpeg ffmpeg-devel
+sudo apt install -y ffmpeg
 
 # Kiểm tra
 ffmpeg -version
 ```
 
 ### Cài đặt Docker
-Trên CentOS 7, phiên bản Docker mặc định có thể quá cũ. Hãy cài Docker CE.
+Cài đặt Docker Engine mới nhất từ repository chính thức của Docker.
 
 ```bash
-# Gỡ bỏ phiên bản cũ (nếu có)
-sudo yum remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+# Cài đặt dependencies cho Docker
+sudo apt install -y ca-certificates curl gnupg
 
-# Cài đặt yum-utils
-sudo yum install -y yum-utils
+# Thêm GPG key của Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-# Thêm Docker repo
-sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+# Thêm Docker repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Cài đặt Docker Engine
-sudo yum install -y docker-ce docker-ce-cli containerd.io
+# Cập nhật apt và cài đặt Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # Khởi động Docker
 sudo systemctl start docker
