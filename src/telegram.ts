@@ -62,9 +62,11 @@ export async function startTelegramBot(
       logger.error({ err, updateType: ctx.updateType }, 'Telegram bot error');
     });
 
-    // Start the bot
-    await bot.launch(() => {
+    // Start the bot (do not await launch as it blocks)
+    bot.launch(() => {
         logger.info('Telegram bot started successfully');
+    }).catch(err => {
+        logger.error({ err }, 'Telegram bot launch failed');
     });
 
     // Enable graceful stop
