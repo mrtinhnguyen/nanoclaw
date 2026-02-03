@@ -144,20 +144,35 @@ export function setLastGroupSync(): void {
  * Store a message with full content.
  * Only call this for registered groups where message history is needed.
  */
-export function storeMessage(msg: proto.IWebMessageInfo, chatJid: string, isFromMe: boolean, pushName?: string, contentOverride?: string): void {
-  if (!msg.key) return;
+export function storeMessage(msg: proto.IWebMessageInfo | NewMessage, chatJid: string, isFromMe: boolean, pushName?: string, contentOverride?: string): void {
+  let msgId: string;
+  let sender: string;
+  let senderName: string;
+  let content: string;
+  let timestamp: string;
 
-  const content = contentOverride ||
-    msg.message?.conversation ||
-    msg.message?.extendedTextMessage?.text ||
-    msg.message?.imageMessage?.caption ||
-    msg.message?.videoMessage?.caption ||
-    '';
-
-  const timestamp = new Date(Number(msg.messageTimestamp) * 1000).toISOString();
-  const sender = msg.key.participant || msg.key.remoteJid || '';
-  const senderName = pushName || sender.split('@')[0];
-  const msgId = msg.key.id || '';
+  if ('key' in msg) {
+    // It's a WhatsApp message (IWebMessageInfo)
+    if (!msg.key) return;
+    msgId = msg.key.id || '';
+    sender = msg.key.participant || msg.key.remoteJid || '';
+    senderName = pushName || sender.split('@')[0];
+    content = contentOverride ||
+      msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      msg.message?.imageMessage?.caption ||
+      msg.message?.videoMessage?.caption ||
+      '';
+    timestamp = new Date(Number(msg.messageTimestamp) * 1000).toISOString();
+  } else {
+    // It's a Unified message (NewMessage)
+    const m = msg as NewMessage;
+    msgId = m.id;
+    sender = m.sender;
+    senderName = m.sender_name || pushName || sender.split('@')[0];
+    content = m.content;
+    timestamp = m.timestamp;
+  }
 
   db.prepare(`INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .run(msgId, chatJid, sender, senderName, content, timestamp, isFromMe ? 1 : 0);
