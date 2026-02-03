@@ -608,26 +608,60 @@ async function startMessageLoop(): Promise<void> {
 }
 
 function ensureContainerSystemRunning(): void {
+  const isMac = process.platform === 'darwin';
+
   try {
-    execSync('container system status', { stdio: 'pipe' });
-    logger.debug('Apple Container system already running');
-  } catch {
-    logger.info('Starting Apple Container system...');
-    try {
-      execSync('container system start', { stdio: 'pipe', timeout: 30000 });
-      logger.info('Apple Container system started');
-    } catch (err) {
-      logger.error({ err }, 'Failed to start Apple Container system');
+    // Check for Docker first (standard for Linux/Server)
+    execSync('docker info', { stdio: 'ignore' });
+    logger.debug('Docker runtime is running');
+    return;
+  } catch (dockerError) {
+    // If we are NOT on macOS, we should fail here with the Docker error
+    // preventing the confusing "container: not found" error from the fallback
+    if (!isMac) {
       console.error('\n╔════════════════════════════════════════════════════════════════╗');
-      console.error('║  FATAL: Apple Container system failed to start                 ║');
+      console.error('║  FATAL: Docker runtime check failed                            ║');
       console.error('║                                                                ║');
-      console.error('║  Agents cannot run without Apple Container. To fix:           ║');
-      console.error('║  1. Install from: https://github.com/apple/container/releases ║');
-      console.error('║  2. Run: container system start                               ║');
-      console.error('║  3. Restart NanoClaw                                          ║');
+      console.error('║  On Linux/Windows, Docker is required.                         ║');
+      console.error('║  Error details:                                                ║');
+      const msg = (dockerError instanceof Error ? dockerError.message : String(dockerError)).replace(/\n/g, ' ');
+      console.error(`║  ${msg.slice(0, 60).padEnd(60)}║`);
+      console.error('║                                                                ║');
+      console.error('║  1. Ensure Docker is installed                                 ║');
+      console.error('║  2. Ensure user has permission (try `sudo usermod -aG docker`) ║');
       console.error('╚════════════════════════════════════════════════════════════════╝\n');
-      throw new Error('Apple Container system is required but failed to start');
+      throw new Error(`Docker check failed: ${msg}`);
     }
+
+    // If Docker fails, check for Apple Container (macOS specific)
+    try {
+      execSync('container system status', { stdio: 'pipe' });
+      logger.debug('Apple Container system already running');
+      return;
+    } catch {
+       // Try to start Apple Container if on macOS
+       if (isMac) {
+          logger.info('Starting Apple Container system...');
+          try {
+            execSync('container system start', { stdio: 'pipe', timeout: 30000 });
+            logger.info('Apple Container system started');
+            return;
+          } catch (err) {
+             logger.error({ err }, 'Failed to start Apple Container system');
+          }
+       }
+    }
+    
+    // If we get here, neither is working
+    console.error('\n╔════════════════════════════════════════════════════════════════╗');
+    console.error('║  FATAL: Container runtime failed to start                      ║');
+    console.error('║                                                                ║');
+    console.error('║  Agents require Docker or Apple Container to run.              ║');
+    console.error('║  1. Ensure Docker is installed and running: `docker info`      ║');
+    console.error('║  2. Or use Apple Container on macOS                            ║');
+    console.error('║  3. Restart NanoClaw                                           ║');
+    console.error('╚════════════════════════════════════════════════════════════════╝\n');
+    throw new Error('Container runtime (Docker/Apple Container) is required but failed to start');
   }
 }
 
