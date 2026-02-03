@@ -207,13 +207,13 @@ async function runAgent(group: RegisteredGroup, prompt: string, chatJid: string)
 
     if (output.status === 'error') {
       logger.error({ group: group.name, error: output.error }, 'Container agent error');
-      return null;
+      return `⚠️ System Error: ${output.error}`;
     }
 
     return output.result;
   } catch (err) {
     logger.error({ group: group.name, err }, 'Agent error');
-    return null;
+    return `⚠️ Internal Error: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 
@@ -580,10 +580,10 @@ async function connectWhatsApp(): Promise<void> {
            // Store the message so it's recorded
            storeMessage(msg, chatJid, msg.key.fromMe || false, msg.pushName || undefined);
            
-           await sendMessage(chatJid, `✅ Group registered as '${groupName}' (Main Group). You can now use NanoClaw here.`);
+           await sendMessage(chatJid, `✅ Đã kích hoạt trung tâm điều khiển: '${groupName}'. Bạn có thể sử dụng trợ lý AI của bạn từ đây.`);
            continue; // Skip further processing for this message to avoid duplicates if we were to fall through
         } else if (isRegisterCommand) {
-           await sendMessage(chatJid, `⚠️ This group is not registered. Please go to your Main Group and ask @${ASSISTANT_NAME} to "register group ${chatJid} as [name]"`);
+           await sendMessage(chatJid, `⚠️ Đã đăng ký nhóm này chưa. Vui lòng vào nhóm chính và hỏi @${ASSISTANT_NAME} để "register group ${chatJid} as [name]"`);
            continue;
         }
       }

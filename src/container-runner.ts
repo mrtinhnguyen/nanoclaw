@@ -346,9 +346,22 @@ export async function runContainerAgent(
         if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
           jsonLine = stdout.slice(startIdx + OUTPUT_START_MARKER.length, endIdx).trim();
         } else {
-          // Fallback: last non-empty line (backwards compatibility)
+          // Fallback: try to find the last JSON object in the output
+          // This is risky but helps when markers are missing due to crash/flush issues
           const lines = stdout.trim().split('\n');
-          jsonLine = lines[lines.length - 1];
+          // Filter for lines that look like JSON output
+          const potentialJson = lines.filter(l => l.startsWith('{') && l.includes('"status":'));
+          if (potentialJson.length > 0) {
+              jsonLine = potentialJson[potentialJson.length - 1];
+          } else {
+              // Last resort: just take the last line
+              jsonLine = lines[lines.length - 1];
+          }
+        }
+
+        if (!jsonLine) {
+            const stderrHint = stderr ? ` (Stderr: ${stderr.slice(-200)})` : '';
+            throw new Error('No output found from container' + stderrHint);
         }
 
         const output: ContainerOutput = JSON.parse(jsonLine);
