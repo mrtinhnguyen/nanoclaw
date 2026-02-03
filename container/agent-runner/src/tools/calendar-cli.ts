@@ -1,5 +1,5 @@
 
-import yargs from 'yargs';
+import yargs, { Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { google } from 'googleapis';
 import fs from 'fs';
@@ -99,13 +99,13 @@ async function addEvent(argv: any) {
 }
 
 yargs(hideBin(process.argv))
-    .command('list [count]', 'List upcoming events', (yargs) => {
+    .command('list [count]', 'List upcoming events', (yargs: Argv) => {
         return yargs.positional('count', {
             describe: 'Number of events to list',
             default: 10
         });
     }, listEvents)
-    .command('add', 'Add an event', (yargs) => {
+    .command('add', 'Add an event', (yargs: Argv) => {
         return yargs
             .option('summary', { type: 'string', demandOption: true })
             .option('start', { type: 'string', demandOption: true, describe: 'ISO date string' })

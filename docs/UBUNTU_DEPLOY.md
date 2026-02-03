@@ -110,16 +110,77 @@ Cập nhật các giá trị sau trong file `.env`:
 Khi chạy lần đầu, NanoClaw sẽ yêu cầu quét mã QR.
 
 ### Cấu hình Google (Gmail & Calendar)
-Để sử dụng tính năng Gmail và Calendar, bạn cần file `credentials.json` và `token.json` từ Google Cloud Console.
 
-1. Tạo thư mục chứa key trên server:
-```bash
-mkdir -p ~/.gmail-mcp
-mkdir -p ~/.calendar-mcp
-```
+Để sử dụng tính năng Gmail và Calendar, bạn cần cấu hình xác thực Google API. Quá trình này bao gồm 3 bước:
 
-2. Upload file `credentials.json` và `token.json` (đã xác thực từ máy local của bạn) lên các thư mục trên.
-   *Lưu ý: Do server không có trình duyệt, bạn nên chạy script xác thực trên máy cá nhân rồi copy file token lên server.*
+#### Bước 1: Lấy Credentials từ Google Cloud Console
+1. Truy cập [Google Cloud Console](https://console.cloud.google.com/).
+2. Tạo một Project mới.
+3. Vào **APIs & Services > Library**, tìm và enable 2 API:
+   - **Gmail API**
+   - **Google Calendar API**
+4. Vào **APIs & Services > OAuth consent screen**:
+   - Chọn **External**.
+   - Điền thông tin ứng dụng (App Name, Email...).
+   - Thêm user test là email của bạn (nếu ứng dụng đang ở chế độ Testing).
+5. Vào **APIs & Services > Credentials**:
+   - Chọn **Create Credentials > OAuth client ID**.
+   - Application type: **Desktop app**.
+   - Tải file JSON về và đổi tên thành `credentials.json`.
+
+#### Bước 2: Tạo Token (Thực hiện trên máy local của bạn)
+Vì server không có trình duyệt để đăng nhập Google, bạn cần tạo token trên máy tính cá nhân (nơi bạn đang dev).
+
+1. Đảm bảo bạn đã cài đặt dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Đặt file `credentials.json` vào thư mục gốc của dự án `nanoclaw`.
+
+3. Chạy script hỗ trợ xác thực:
+   ```bash
+   npx tsx scripts/setup-google-auth.ts
+   ```
+
+4. Làm theo hướng dẫn trên màn hình:
+   - Script sẽ tạo ra một đường link.
+   - Mở link đó trên trình duyệt, đăng nhập tài khoản Google của bạn.
+   - Cấp quyền truy cập.
+   - Copy mã xác thực (code) và dán vào terminal.
+   - Script sẽ tạo ra file `google-tokens/token.json`.
+
+#### Bước 3: Upload lên Server
+
+1. SSH vào server và tạo thư mục chứa key:
+   ```bash
+   mkdir -p ~/.gmail-mcp
+   mkdir -p ~/.calendar-mcp
+   ```
+
+2. Upload file `credentials.json` và `token.json` lên server.
+   Bạn có thể dùng `scp` (trên Linux/Mac) hoặc WinSCP (trên Windows).
+
+   **Lưu ý:** Cần copy cả 2 file vào cả 2 thư mục (nếu dùng cả Gmail và Calendar):
+   
+   *Ví dụ cấu trúc trên server:*
+   ```text
+   /home/username/.gmail-mcp/
+   ├── credentials.json
+   └── token.json
+
+   /home/username/.calendar-mcp/
+   ├── credentials.json
+   └── token.json
+   ```
+
+   *Lệnh copy nhanh trên server (sau khi upload vào một chỗ):*
+   ```bash
+   cp credentials.json ~/.gmail-mcp/
+   cp token.json ~/.gmail-mcp/
+   cp credentials.json ~/.calendar-mcp/
+   cp token.json ~/.calendar-mcp/
+   ```
 
 ## 4. Chạy Ứng dụng
 
