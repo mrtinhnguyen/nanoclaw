@@ -62,8 +62,13 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Kiểm tra (cần quyền root hoặc thêm user vào group docker)
-docker --version
+# Thêm user hiện tại vào group docker (để chạy docker không cần sudo)
+sudo usermod -aG docker $USER
+# Lưu ý: Bạn cần logout và login lại để thay đổi này có hiệu lực
+newgrp docker
+
+# Kiểm tra (không cần sudo)
+docker info
 ```
 
 ## 2. Cài đặt NanoClaw
